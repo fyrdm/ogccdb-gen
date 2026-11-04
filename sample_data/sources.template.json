@@ -1,0 +1,25 @@
+{
+  "area": {
+    "west": 8.0,
+    "south": 47.0,
+    "east": 9.0,
+    "north": 48.0,
+    "note": "Geocell N47 E008, whole: lakes, hills and the first alpine ridges, heights about 290 to 2860 m."
+  },
+  "elevation": {
+    "description": "open global 30 m DEM (1 arc-second posts, heights above the EGM2008 geoid)",
+    "urls": [
+      ""
+    ],
+    "vertical_crs": "EPSG:3855",
+    "attribution": ""
+  },
+  "imagery": {
+    "description": "open 10 m satellite imagery (8-bit true-colour RGB, two nearly cloud-free scenes from one pass)",
+    "urls": [
+      ""
+    ],
+    "attribution": "",
+    "ignore_nodata": true
+  }
+}
