@@ -204,3 +204,33 @@ TEST_F(GenTest, Info) {
     ASSERT_EQ(run("info " + cdb + " --lod 1 --dataset 4"), 0);
     EXPECT_NE(read_text(out()).find(", 0 tiles"), std::string::npos) << read_text(out());
 }
+
+// check reads every tile and reports bad paths and unreadable tiles.
+TEST_F(GenTest, Check) {
+    const std::string cdb = "\"" + root_.string() + "\"";
+    ASSERT_EQ(run("build " + cdb + " --elevation \"" + make_dem().string() + "\" --min-lod 0" +
+                  " --max-lod 1 --extent 10,10,11,10.5"),
+              0)
+        << read_text(out());
+    ASSERT_EQ(run("check " + cdb), 0) << read_text(out());
+    EXPECT_EQ(read_text(out()), "3 tiles read, 0 problems\n");
+
+    // A stray file, a file that is not a GeoTIFF, and a GeoTIFF of the wrong size.
+    const std::string l0 = relative_path(elevation_file({kCell, 0, 0, 0}));
+    const std::string l1 = relative_path(elevation_file({kCell, 1, 0, 0}));
+    std::ofstream(root_ / "Tiles" / "notes.txt") << "notes";
+    std::ofstream(root_ / l0, std::ios::trunc) << "not a GeoTIFF";
+    auto* drv = GetGDALDriverManager()->GetDriverByName("GTiff");
+    GDALClose(drv->Create((root_ / l1).string().c_str(), 10, 10, 1, GDT_Float32, nullptr));
+
+    EXPECT_NE(run("check " + cdb), 0);
+    const std::string text = read_text(out());
+    EXPECT_NE(text.find("Tiles/notes.txt: not a CDB tile path\n"), std::string::npos) << text;
+    EXPECT_NE(text.find(l0 + ": "), std::string::npos) << text;
+    EXPECT_NE(text.find(l1 + ": "), std::string::npos) << text;
+    EXPECT_NE(text.find("1 tiles read, 3 problems\n"), std::string::npos) << text;
+    // --lod filters the tiles read; paths that are not tile paths are always reported.
+    EXPECT_NE(run("check " + cdb + " --lod 1"), 0);
+    EXPECT_EQ(read_text(out()), l1 + ": expected 1024x1024 grid\nTiles/notes.txt: not a CDB tile path\n" +
+                                    "1 tiles read, 2 problems\n");
+}
