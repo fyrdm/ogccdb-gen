@@ -247,8 +247,9 @@ def main():
     ap.add_argument("--keep-geoid-heights", action="store_true",
                     help="import heights as given, without converting them to the ellipsoid")
     ap.add_argument("--force", action="store_true", help="replace an existing CDB in --work")
-    ap.add_argument("--min-lod", type=int, default=0,
-                    help="coarsest LOD, passed to ogccdb-gen (default: 0, no negative LODs)")
+    ap.add_argument("--min-lod", type=int, default=-10,
+                    help="coarsest LOD, passed to ogccdb-gen (default: -10; CDB 1.3 Vol 1 "
+                         "§7.1.2.2 Requirement 15 asks for every LOD down to -10)")
     ap.add_argument("--max-lod", type=int, help="passed to ogccdb-gen (default: source resolution)")
     args = ap.parse_args()
 
