@@ -1,5 +1,5 @@
 // ogccdb-gen: builds an OGC CDB 1.3 data store from GeoTIFF/DEM and RGB
-// GeoTIFF inputs, and lists its tiles. Built on the ogccdb-core library.
+// GeoTIFF inputs, and lists and checks its tiles. Built on the ogccdb-core library.
 
 #include <stdexcept>
 #include <algorithm>
@@ -34,6 +34,7 @@ constexpr std::string_view kUsage =
     "                   [--quality 1..100] [--extent W,S,E,N] [--comment TEXT]\n"
     "  ogccdb-gen list <cdb> [--dataset 1|4] [--lod N]\n"
     "  ogccdb-gen info <cdb> [--dataset 1|4] [--lod N]\n"
+    "  ogccdb-gen check <cdb> [--dataset 1|4] [--lod N]\n"
     "\n"
     "build creates the CDB Version <cdb> (Metadata/Version.xml) if it does not exist yet,\n"
     "then imports the Elevation and Imagery sources into it. Repeat --elevation or\n"
@@ -47,7 +48,10 @@ constexpr std::string_view kUsage =
     "--extent 8,47,9,48.\n"
     "list prints the tile files of <cdb>, one path per line.\n"
     "info prints, per dataset component, LOD and geocell, how many of the geocell's tiles\n"
-    "<cdb> holds.\n";
+    "<cdb> holds.\n"
+    "check reads every file under <cdb>/Tiles and prints one line per problem: a path\n"
+    "that is not a CDB tile path, or a tile that cannot be read (format, size, channels,\n"
+    "data type). It exits with 1 if it finds a problem.\n";
 
 struct UsageError : std::runtime_error {
     using std::runtime_error::runtime_error;
@@ -239,6 +243,55 @@ int info(const fs::path& cdb, const std::vector<std::string>& args) {
     return 0;
 }
 
+// Problems in the files under <cdb>/Tiles: paths that are not tile paths, and
+// tiles the ogccdb-core readers reject. The readers apply the CDB rules on
+// format, raster size, channels and data type.
+int check(const fs::path& cdb, const std::vector<std::string>& args) {
+    const TileQuery q = parse_query(args);
+    const Store store = Store::open(cdb);
+    const fs::path tiles = store.root() / "Tiles";
+    std::vector<fs::path> paths;
+    if (fs::exists(tiles))
+        for (const auto& e : fs::recursive_directory_iterator(tiles))
+            if (!e.is_directory()) paths.push_back(e.path());
+    std::sort(paths.begin(), paths.end());
+
+    std::size_t read = 0, skipped = 0, problems = 0;
+    for (const fs::path& path : paths) {
+        const std::string rel = path.lexically_relative(store.root()).generic_string();
+        const auto parsed = parse_path(rel);
+        if (!parsed || !parsed->root.empty()) {
+            std::cout << rel << ": not a CDB tile path\n";
+            ++problems;
+            continue;
+        }
+        const TileFile& f = parsed->file;
+        if ((q.dataset && f.dataset != *q.dataset) || (q.lod && f.tile.lod != *q.lod)) continue;
+        try {
+            const ImageryComponent c{f.selector1, f.selector2};
+            if (f == elevation_file(f.tile)) store.read_elevation(f.tile);
+            else if (f.dataset == kImagery && is_valid(c) && f == imagery_file(f.tile, c))
+                store.read_imagery(f.tile, c);
+            else {
+                ++skipped;
+                continue;
+            }
+            ++read;
+        } catch (const std::exception& e) {
+            // The readers prefix the message with the file's path.
+            std::string why = e.what();
+            const std::string prefix = path.string() + ": ";
+            if (why.compare(0, prefix.size(), prefix) == 0) why.erase(0, prefix.size());
+            std::cout << rel << ": " << why << "\n";
+            ++problems;
+        }
+    }
+    std::cout << read << " tiles read, " << problems << " problems";
+    if (skipped) std::cout << ", " << skipped << " tiles of components not read";
+    std::cout << "\n";
+    return problems ? 1 : 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -253,6 +306,7 @@ int main(int argc, char** argv) {
         if (args[0] == "build") return build(args[1], rest);
         if (args[0] == "list") return list(args[1], rest);
         if (args[0] == "info") return info(args[1], rest);
+        if (args[0] == "check") return check(args[1], rest);
         throw UsageError("unknown command " + args[0]);
     } catch (const UsageError& e) {
         std::cerr << "ogccdb-gen: " << e.what() << "\n" << kUsage;
