@@ -187,3 +187,20 @@ TEST_F(GenTest, OptionsPerDataset) {
     EXPECT_EQ(store.list_tiles({kImagery, std::nullopt, std::nullopt}).size(), 1u);
     EXPECT_NE(run("build " + cdb + " --imagery-resampling sharp"), 0);
 }
+
+// info counts the tiles per dataset component, LOD and geocell.
+TEST_F(GenTest, Info) {
+    const std::string cdb = "\"" + root_.string() + "\"";
+    ASSERT_EQ(run("build " + cdb + " --elevation \"" + make_dem().string() + "\" --min-lod 0" +
+                  " --max-lod 1 --extent 10,10,11,10.5"),
+              0)
+        << read_text(out());
+    ASSERT_EQ(run("info " + cdb), 0);
+    const std::string text = read_text(out());
+    EXPECT_NE(text.find("CDB 1.3, 3 tiles"), std::string::npos) << text;
+    EXPECT_NE(text.find("Elevation (D001 S001 T001)\n"), std::string::npos) << text;
+    EXPECT_NE(text.find("  L00  N10E010  1 of 1 tiles\n"), std::string::npos) << text;
+    EXPECT_NE(text.find("  L01  N10E010  2 of 4 tiles  partial\n"), std::string::npos) << text;
+    ASSERT_EQ(run("info " + cdb + " --lod 1 --dataset 4"), 0);
+    EXPECT_NE(read_text(out()).find(", 0 tiles"), std::string::npos) << read_text(out());
+}

@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
+#include <cstdio>
 #include <exception>
 #include <filesystem>
 #include <iostream>
@@ -12,6 +14,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 #include "ogccdb/cdb13/lod.hpp"
@@ -30,6 +33,7 @@ constexpr std::string_view kUsage =
     "                   [--imagery-min-lod N] [--imagery-max-lod N] [--imagery-resampling R]\n"
     "                   [--quality 1..100] [--extent W,S,E,N] [--comment TEXT]\n"
     "  ogccdb-gen list <cdb> [--dataset 1|4] [--lod N]\n"
+    "  ogccdb-gen info <cdb> [--dataset 1|4] [--lod N]\n"
     "\n"
     "build creates the CDB Version <cdb> (Metadata/Version.xml) if it does not exist yet,\n"
     "then imports the Elevation and Imagery sources into it. Repeat --elevation or\n"
@@ -41,7 +45,9 @@ constexpr std::string_view kUsage =
     "--elevation-* and --imagery-* forms set one dataset and win over them.\n"
     "--extent (degrees) imports only the tiles that overlap it, e.g. one geocell:\n"
     "--extent 8,47,9,48.\n"
-    "list prints the tile files of <cdb>, one path per line.\n";
+    "list prints the tile files of <cdb>, one path per line.\n"
+    "info prints, per dataset component, LOD and geocell, how many of the geocell's tiles\n"
+    "<cdb> holds.\n";
 
 struct UsageError : std::runtime_error {
     using std::runtime_error::runtime_error;
@@ -170,7 +176,7 @@ int build(const fs::path& cdb, const std::vector<std::string>& args) {
     return 0;
 }
 
-int list(const fs::path& cdb, const std::vector<std::string>& args) {
+TileQuery parse_query(const std::vector<std::string>& args) {
     TileQuery q;
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& flag = args[i];
@@ -180,8 +186,56 @@ int list(const fs::path& cdb, const std::vector<std::string>& args) {
         else if (flag == "--lod") q.lod = to_int(flag, v);
         else throw UsageError("unknown option " + flag);
     }
+    return q;
+}
+
+int list(const fs::path& cdb, const std::vector<std::string>& args) {
+    const TileQuery q = parse_query(args);
     const Store store = Store::open(cdb);
     for (const TileFile& f : store.list_tiles(q)) std::cout << relative_path(f) << "\n";
+    return 0;
+}
+
+std::string geocell_name(Geocell g) { return latitude_name(g.lat) + longitude_name(g.lon); }
+
+int info(const fs::path& cdb, const std::vector<std::string>& args) {
+    const TileQuery q = parse_query(args);
+    const Store store = Store::open(cdb);
+    const std::vector<TileFile> files = store.list_tiles(q);
+    const auto& spec = store.version().specification;
+    std::cout << store.root().string() << ": CDB " << (spec ? spec->version : "?") << ", "
+              << files.size() << " tiles\n";
+
+    // list_tiles() sorts by dataset, selectors, LOD and geocell, so equal keys are adjacent.
+    using Key = std::tuple<int, int, int, int, int, int>;  // dataset, S, T, LOD, lat, lon
+    const auto key = [](const TileFile& f) {
+        return Key{f.dataset, f.selector1, f.selector2, f.tile.lod, f.tile.geocell.lat,
+                   f.tile.geocell.lon};
+    };
+    std::optional<std::tuple<int, int, int>> component;
+    bool partial = false;
+    for (std::size_t i = 0; i < files.size();) {
+        std::size_t j = i;
+        while (j < files.size() && key(files[j]) == key(files[i])) ++j;
+        const TileFile& f = files[i];
+        if (component != std::tuple{f.dataset, f.selector1, f.selector2}) {
+            component = {f.dataset, f.selector1, f.selector2};
+            char code[32];
+            std::snprintf(code, sizeof code, "D%03d S%03d T%03d", f.dataset, f.selector1,
+                          f.selector2);
+            std::cout << dataset_name(f.dataset).value_or("Dataset") << " (" << code << ")\n";
+        }
+        // CDB 1.3 Vol 1 §7.1.2.1 Req 14, §7.1.2.3 Req 16: one tile per geocell up to LOD 0,
+        // then 2^LOD x 2^LOD.
+        const std::int64_t total = tiles_per_geocell(f.tile.lod);
+        const std::size_t n = j - i;
+        partial = partial || std::int64_t(n) < total;
+        std::cout << "  " << lod_name(f.tile.lod) << "  " << geocell_name(f.tile.geocell) << "  "
+                  << n << " of " << total << " tiles" << (std::int64_t(n) < total ? "  partial" : "")
+                  << "\n";
+        i = j;
+    }
+    if (partial) std::cout << "partial: the store holds only some of the geocell's tiles at that LOD\n";
     return 0;
 }
 
@@ -198,6 +252,7 @@ int main(int argc, char** argv) {
         const std::vector<std::string> rest(args.begin() + 2, args.end());
         if (args[0] == "build") return build(args[1], rest);
         if (args[0] == "list") return list(args[1], rest);
+        if (args[0] == "info") return info(args[1], rest);
         throw UsageError("unknown command " + args[0]);
     } catch (const UsageError& e) {
         std::cerr << "ogccdb-gen: " << e.what() << "\n" << kUsage;

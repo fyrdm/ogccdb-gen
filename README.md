@@ -12,6 +12,7 @@ ogccdb-core C++17 library. License: MIT.
 ```bash
 ogccdb-gen build out/CDB --elevation dem_tiles/ --imagery scene1.tif --imagery drone.tif
 ogccdb-gen list out/CDB --dataset 4 --lod 3
+ogccdb-gen info out/CDB          # tiles per dataset, LOD and geocell, e.g. "L03  N47E008  64 of 64 tiles"
 ogccdb-gen --help
 ```
 
