@@ -38,14 +38,15 @@ python3 sample_data/build_sample_cdb.py --config ../sample-sources.json
 ```
 
 Options: `--gen` (path to ogccdb-gen, default `build/ogccdb-gen`), `--work` (default
-`out/sample`), `--force` (rebuild the CDB), `--min-lod` (default 0), `--max-lod`,
+`out/sample`), `--force` (rebuild the CDB), `--min-lod` (default −10), `--max-lod`,
 `--keep-geoid-heights`.
 
 ## What to expect
 
-For the default geocell: 90 tiles, every tile of LOD 0 to 1 for Elevation (5) and of
-LOD 0 to 3 for Imagery (85). The sample starts at LOD 0 (folder `L00`); the negative LODs
-(folder `LC`) are optional and left out unless `--min-lod` asks for them. The summary prints, per dataset, LOD and geocell, how many
+For the default geocell: 110 tiles, every tile of LOD −10 to 1 for Elevation (15) and of
+LOD −10 to 3 for Imagery (95). The negative LODs, one tile each in folder `LC`, are part
+of the sample because CDB 1.3 Vol 1 §7.1.2.2 Requirement 15 asks for the whole LOD
+hierarchy down to LOD −10 in every geocell. The summary prints, per dataset, LOD and geocell, how many
 of the geocell's tiles were written, and how much of each geocell the area covers.
 
 ogccdb-gen writes only tiles the sources fully cover. For an area smaller than a geocell,
