@@ -14,6 +14,7 @@
 #include <string_view>
 #include <vector>
 
+#include "ogccdb/cdb13/lod.hpp"
 #include "ogccdb/cdb13/store.hpp"
 
 namespace fs = std::filesystem;
@@ -25,6 +26,8 @@ constexpr std::string_view kUsage =
     "usage:\n"
     "  ogccdb-gen build <cdb> [--elevation <dem.tif|folder>]... [--imagery <image.tif|folder>]...\n"
     "                   [--min-lod N] [--max-lod N] [--resampling nearest|bilinear|cubic|average]\n"
+    "                   [--elevation-min-lod N] [--elevation-max-lod N] [--elevation-resampling R]\n"
+    "                   [--imagery-min-lod N] [--imagery-max-lod N] [--imagery-resampling R]\n"
     "                   [--quality 1..100] [--extent W,S,E,N] [--comment TEXT]\n"
     "  ogccdb-gen list <cdb> [--dataset 1|4] [--lod N]\n"
     "\n"
@@ -32,9 +35,12 @@ constexpr std::string_view kUsage =
     "then imports the Elevation and Imagery sources into it. Repeat --elevation or\n"
     "--imagery, or name a folder (its .tif files, by name), to mosaic several inputs of\n"
     "any size, resolution and CRS; where they overlap, the finer one wins (the later one\n"
-    "at equal resolution). Without --max-lod, each input goes as fine as its resolution\n"
-    "allows. --extent (degrees) imports\n"
-    "only the tiles that overlap it, e.g. one geocell: --extent 8,47,9,48.\n"
+    "at equal resolution).\n"
+    "LODs: by default from LOD -10 to as fine as each input's resolution allows, set per\n"
+    "dataset. --min-lod, --max-lod and --resampling apply to both datasets; the\n"
+    "--elevation-* and --imagery-* forms set one dataset and win over them.\n"
+    "--extent (degrees) imports only the tiles that overlap it, e.g. one geocell:\n"
+    "--extent 8,47,9,48.\n"
     "list prints the tile files of <cdb>, one path per line.\n";
 
 struct UsageError : std::runtime_error {
@@ -88,14 +94,44 @@ std::vector<fs::path> expand(const fs::path& p) {
 }
 
 void report(std::string_view what, const RasterImportResult& r) {
-    std::cout << what << ": " << r.written.size() << " tiles written, " << r.skipped.size()
-              << " not fully covered\n";
+    std::cout << what << ": " << r.written.size() << " tiles written";
+    if (!r.written.empty()) {
+        const auto [lo, hi] = std::minmax_element(
+            r.written.begin(), r.written.end(),
+            [](const TileAddress& a, const TileAddress& b) { return a.lod < b.lod; });
+        std::cout << " (" << lod_name(lo->lod) << " to " << lod_name(hi->lod) << ")";
+    }
+    std::cout << ", " << r.skipped.size() << " not fully covered\n";
+}
+
+// LOD and resampling options given for both datasets and for one of them.
+struct DatasetOptions {
+    std::optional<int> min_lod, max_lod;
+    std::optional<Resampling> resampling;
+};
+
+void apply(const DatasetOptions& o, RasterImportOptions& to) {
+    if (o.min_lod) to.min_lod = *o.min_lod;
+    if (o.max_lod) to.max_lod = *o.max_lod;
+    if (o.resampling) to.resampling = *o.resampling;
+}
+
+// Parses --<prefix>min-lod, --<prefix>max-lod and --<prefix>resampling.
+bool parse_dataset_option(const std::string& prefix, const std::string& flag, const std::string& v,
+                          DatasetOptions& o) {
+    if (flag == "--" + prefix + "min-lod") o.min_lod = to_int(flag, v);
+    else if (flag == "--" + prefix + "max-lod") o.max_lod = to_int(flag, v);
+    else if (flag == "--" + prefix + "resampling") o.resampling = to_resampling(v);
+    else return false;
+    return true;
 }
 
 int build(const fs::path& cdb, const std::vector<std::string>& args) {
     std::vector<fs::path> elevation, imagery;
     std::optional<std::string> comment;
-    ImageryImportOptions opt;
+    DatasetOptions both, elevation_only, imagery_only;
+    ImageryImportOptions imagery_opt;
+    std::optional<GeoExtent> extent;
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& flag = args[i];
         if (i + 1 >= args.size()) throw UsageError(flag + " needs a value");
@@ -107,11 +143,11 @@ int build(const fs::path& cdb, const std::vector<std::string>& args) {
             const auto files = expand(v);
             imagery.insert(imagery.end(), files.begin(), files.end());
         }
-        else if (flag == "--min-lod") opt.min_lod = to_int(flag, v);
-        else if (flag == "--max-lod") opt.max_lod = to_int(flag, v);
-        else if (flag == "--resampling") opt.resampling = to_resampling(v);
-        else if (flag == "--quality") opt.encoding.quality = to_int(flag, v);
-        else if (flag == "--extent") opt.extent = to_extent(v);
+        else if (parse_dataset_option("", flag, v, both)) {}
+        else if (parse_dataset_option("elevation-", flag, v, elevation_only)) {}
+        else if (parse_dataset_option("imagery-", flag, v, imagery_only)) {}
+        else if (flag == "--quality") imagery_opt.encoding.quality = to_int(flag, v);
+        else if (flag == "--extent") extent = to_extent(v);
         else if (flag == "--comment") comment = v;
         else throw UsageError("unknown option " + flag);
     }
@@ -123,8 +159,14 @@ int build(const fs::path& cdb, const std::vector<std::string>& args) {
     Store store = exists ? Store::open(cdb) : Store::create(cdb, version);
     std::cout << (exists ? "opened " : "created ") << store.root().string() << "\n";
 
-    if (!elevation.empty()) report("Elevation", store.import_elevation(elevation, opt));
-    if (!imagery.empty()) report("Imagery", store.import_imagery(imagery, opt));
+    RasterImportOptions elevation_opt;
+    elevation_opt.extent = imagery_opt.extent = extent;
+    apply(both, elevation_opt);
+    apply(elevation_only, elevation_opt);
+    apply(both, imagery_opt);
+    apply(imagery_only, imagery_opt);
+    if (!elevation.empty()) report("Elevation", store.import_elevation(elevation, elevation_opt));
+    if (!imagery.empty()) report("Imagery", store.import_imagery(imagery, imagery_opt));
     return 0;
 }
 

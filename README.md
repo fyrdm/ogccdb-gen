@@ -20,6 +20,9 @@ ogccdb-gen --help
 - Each input is written down to the finest LOD its resolution allows. Where inputs
   overlap, the finer one wins (the later one at equal resolution), and coarser ones
   fill the rest of a tile.
+- LODs are picked per dataset: from LOD −10 down to the finest LOD the inputs'
+  resolution allows. `--min-lod`, `--max-lod` and `--resampling` set both datasets;
+  `--elevation-min-lod`, `--imagery-max-lod`, `--imagery-resampling` and so on set one.
 - `--extent W,S,E,N` (degrees) limits the import, e.g. to one geocell.
 
 `sample_data/` builds a small sample store from open global data; see its README.

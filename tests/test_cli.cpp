@@ -131,6 +131,16 @@ protected:
             }
     }
 
+    // Runs ogccdb-gen with `args`; its standard output goes to out().
+    int run(const std::string& args) const {
+        std::string cmd = "\"" + std::string(OGCCDB_GEN_EXE) + "\" " + args + " > \"" + out().string() + "\"";
+#ifdef _WIN32
+        cmd = "\"" + cmd + "\"";  // cmd.exe strips the outer quotes
+#endif
+        return std::system(cmd.c_str());
+    }
+    fs::path out() const { return dir_ / "out.txt"; }
+
     fs::path dir_, root_;
 };
 
@@ -138,14 +148,6 @@ protected:
 
 // ogccdb-gen builds a store from the inputs and lists its tiles.
 TEST_F(GenTest, BuildAndList) {
-    const fs::path out = dir_ / "out.txt";
-    const auto run = [&](const std::string& args) {
-        std::string cmd = "\"" + std::string(OGCCDB_GEN_EXE) + "\" " + args + " > \"" + out.string() + "\"";
-#ifdef _WIN32
-        cmd = "\"" + cmd + "\"";  // cmd.exe strips the outer quotes
-#endif
-        return std::system(cmd.c_str());
-    };
     const std::string cdb = "\"" + root_.string() + "\"";
     // Imagery from a folder of scenes, here a single one.
     const fs::path scenes = dir_ / "scenes";
@@ -154,15 +156,34 @@ TEST_F(GenTest, BuildAndList) {
     ASSERT_EQ(run("build " + cdb + " --elevation \"" + make_dem().string() + "\" --imagery \"" +
                   scenes.string() + "\" --comment example"),
               0)
-        << read_text(out);
+        << read_text(out());
     const Store store = Store::open(root_);
     EXPECT_EQ(store.version().comment, "example");
     expect_built(store);
 
     ASSERT_EQ(run("list " + cdb + " --dataset 4 --lod -2"), 0);
-    EXPECT_EQ(read_text(out), relative_path(imagery_file({kCell, -2, 0, 0})) + "\n");
+    EXPECT_EQ(read_text(out()), relative_path(imagery_file({kCell, -2, 0, 0})) + "\n");
     EXPECT_NE(run("list \"" + (dir_ / "missing").string() + "\""), 0);
     EXPECT_NE(run("build " + cdb + " --max-lod x"), 0);
     fs::create_directories(dir_ / "empty");
     EXPECT_NE(run("build " + cdb + " --imagery \"" + (dir_ / "empty").string() + "\""), 0);
+}
+
+// Each dataset takes its own LOD range: shared options apply to both, the
+// --elevation-* and --imagery-* forms override them for one dataset.
+TEST_F(GenTest, OptionsPerDataset) {
+    const std::string cdb = "\"" + root_.string() + "\"";
+    ASSERT_EQ(run("build " + cdb + " --elevation \"" + make_dem().string() + "\" --imagery \"" +
+                  make_rgb().string() + "\" --min-lod -4 --elevation-max-lod -3" +
+                  " --imagery-min-lod -2 --imagery-resampling average --extent 10,10,11,11"),
+              0)
+        << read_text(out());
+    EXPECT_NE(read_text(out()).find("Elevation: 2 tiles written (LC04 to LC03)"), std::string::npos)
+        << read_text(out());
+    EXPECT_NE(read_text(out()).find("Imagery: 1 tiles written (LC02 to LC02)"), std::string::npos)
+        << read_text(out());
+    const Store store = Store::open(root_);
+    EXPECT_EQ(store.list_tiles({kElevation, std::nullopt, std::nullopt}).size(), 2u);
+    EXPECT_EQ(store.list_tiles({kImagery, std::nullopt, std::nullopt}).size(), 1u);
+    EXPECT_NE(run("build " + cdb + " --imagery-resampling sharp"), 0);
 }
