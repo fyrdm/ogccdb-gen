@@ -40,6 +40,16 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-With vcpkg, `vcpkg.json` lists the dependencies. ogccdb-core will come from the
-project's vcpkg registry; that setup (`vcpkg-configuration.json`) follows once the
-registry has ogccdb-core 0.2.
+With vcpkg, `vcpkg.json` lists the dependencies and `vcpkg-configuration.json` takes
+ogccdb-core from the project's vcpkg registry (fyrdm/ogccdb-registry). While that
+registry and ogccdb-core are private, git must be able to read them
+(`git ls-remote https://github.com/fyrdm/ogccdb-core.git` works without asking):
+
+```bash
+cmake -B build -S . -G Ninja -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+To use a newer ogccdb-core, move the registry `baseline` to a later commit of the
+registry.
