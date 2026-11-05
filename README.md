@@ -13,7 +13,7 @@ ogccdb-core C++17 library. License: MIT.
 ogccdb-gen build out/CDB --elevation dem_tiles/ --imagery scene1.tif --imagery drone.tif
 ogccdb-gen list out/CDB --dataset 4 --lod 3
 ogccdb-gen info out/CDB          # tiles per dataset, LOD and geocell, e.g. "L03  N47E008  64 of 64 tiles"
-ogccdb-gen check out/CDB         # reads every tile; one line per bad path or unreadable tile
+ogccdb-gen check out/CDB         # reads every tile; one line per bad path, unreadable tile or missing parent
 ogccdb-gen --help
 ```
 
