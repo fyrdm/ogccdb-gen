@@ -31,7 +31,7 @@ constexpr std::string_view kUsage =
     "                   [--min-lod N] [--max-lod N] [--resampling nearest|bilinear|cubic|average]\n"
     "                   [--elevation-min-lod N] [--elevation-max-lod N] [--elevation-resampling R]\n"
     "                   [--imagery-min-lod N] [--imagery-max-lod N] [--imagery-resampling R]\n"
-    "                   [--quality 1..100] [--extent W,S,E,N] [--comment TEXT]\n"
+    "                   [--quality 1..100] [--extent W,S,E,N] [--no-fill] [--comment TEXT]\n"
     "  ogccdb-gen list <cdb> [--dataset 1|4] [--lod N]\n"
     "  ogccdb-gen info <cdb> [--dataset 1|4] [--lod N]\n"
     "  ogccdb-gen check <cdb> [--dataset 1|4] [--lod N]\n"
@@ -46,6 +46,10 @@ constexpr std::string_view kUsage =
     "--elevation-* and --imagery-* forms set one dataset and win over them.\n"
     "--extent (degrees) imports only the tiles that overlap it, e.g. one geocell:\n"
     "--extent 8,47,9,48.\n"
+    "Tiles are written whole (CDB 1.3 Vol 1 §8.6.1.1): where no input covers part of a\n"
+    "tile, that part gets the dataset default value from Metadata/Defaults.xml, else\n"
+    "the spec's (0 m for Elevation, gray 0.5 for Imagery). --no-fill leaves such tiles\n"
+    "out instead, with the finer tiles under them (§7.1.2.2 Requirement 15).\n"
     "list prints the tile files of <cdb>, one path per line.\n"
     "info prints, per dataset component, LOD and geocell, how many of the geocell's tiles\n"
     "<cdb> holds.\n"
@@ -103,15 +107,22 @@ std::vector<fs::path> expand(const fs::path& p) {
     return out;
 }
 
-void report(std::string_view what, const RasterImportResult& r) {
-    std::cout << what << ": " << r.written.size() << " tiles written";
-    if (!r.written.empty()) {
-        const auto [lo, hi] = std::minmax_element(
-            r.written.begin(), r.written.end(),
-            [](const TileAddress& a, const TileAddress& b) { return a.lod < b.lod; });
-        std::cout << " (" << lod_name(lo->lod) << " to " << lod_name(hi->lod) << ")";
-    }
-    std::cout << ", " << r.skipped.size() << " not fully covered\n";
+// " (<coarsest LOD> to <finest LOD>)" of the tiles, or nothing if there are none.
+std::string lod_range(const std::vector<TileAddress>& tiles) {
+    if (tiles.empty()) return "";
+    const auto [lo, hi] = std::minmax_element(
+        tiles.begin(), tiles.end(), [](const TileAddress& a, const TileAddress& b) { return a.lod < b.lod; });
+    return " (" + lod_name(lo->lod) + " to " + lod_name(hi->lod) + ")";
+}
+
+void report(std::string_view what, const RasterImportResult& r, PartialTiles partial) {
+    std::cout << what << ": " << r.written.size() << " tiles written" << lod_range(r.written);
+    if (partial == PartialTiles::skip)
+        std::cout << ", " << r.skipped.size() << " left out (partly covered, or under a tile left out)";
+    else if (!r.filled.empty())
+        std::cout << ", " << r.filled.size() << " of them partly covered and filled with the default value"
+                  << lod_range(r.filled);
+    std::cout << "\n";
 }
 
 // LOD and resampling options given for both datasets and for one of them.
@@ -142,8 +153,13 @@ int build(const fs::path& cdb, const std::vector<std::string>& args) {
     DatasetOptions both, elevation_only, imagery_only;
     ImageryImportOptions imagery_opt;
     std::optional<GeoExtent> extent;
+    PartialTiles partial = PartialTiles::fill_default;
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& flag = args[i];
+        if (flag == "--no-fill") {
+            partial = PartialTiles::skip;
+            continue;
+        }
         if (i + 1 >= args.size()) throw UsageError(flag + " needs a value");
         const std::string& v = args[++i];
         if (flag == "--elevation") {
@@ -171,12 +187,13 @@ int build(const fs::path& cdb, const std::vector<std::string>& args) {
 
     RasterImportOptions elevation_opt;
     elevation_opt.extent = imagery_opt.extent = extent;
+    elevation_opt.partial = imagery_opt.partial = partial;
     apply(both, elevation_opt);
     apply(elevation_only, elevation_opt);
     apply(both, imagery_opt);
     apply(imagery_only, imagery_opt);
-    if (!elevation.empty()) report("Elevation", store.import_elevation(elevation, elevation_opt));
-    if (!imagery.empty()) report("Imagery", store.import_imagery(imagery, imagery_opt));
+    if (!elevation.empty()) report("Elevation", store.import_elevation(elevation, elevation_opt), partial);
+    if (!imagery.empty()) report("Imagery", store.import_imagery(imagery, imagery_opt), partial);
     return 0;
 }
 

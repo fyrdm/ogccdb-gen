@@ -26,12 +26,18 @@ ogccdb-gen --help
   resolution allows. `--min-lod`, `--max-lod` and `--resampling` set both datasets;
   `--elevation-min-lod`, `--imagery-max-lod`, `--imagery-resampling` and so on set one.
 - `--extent W,S,E,N` (degrees) limits the import, e.g. to one geocell.
+- Tiles are written whole (CDB 1.3 Vol 1 §8.6.1.1). Where no input covers part of a
+  tile, that part gets the dataset default value from `Metadata/Defaults.xml`, else
+  the spec's value (Annex S): 0 m for Elevation, gray 0.5 for Imagery. `--no-fill`
+  leaves such tiles out instead, together with the finer tiles under them
+  (§7.1.2.2 Requirement 15). An input that reaches past a geocell edge also fills
+  tiles of the neighbouring geocell; `--extent` keeps them out.
 
 `sample_data/` builds a small sample store from open global data; see its README.
 
 ## Build
 
-Needs CMake ≥ 3.20, a C++17 compiler and ogccdb-core 0.2.
+Needs CMake ≥ 3.20, a C++17 compiler and ogccdb-core 0.3.
 
 With ogccdb-core installed to a prefix (it needs GDAL, pugixml and, for the tests,
 GTest from system packages):
