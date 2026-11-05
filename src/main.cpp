@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include "ogccdb/cdb13/elevation_import.hpp"
 #include "ogccdb/cdb13/lod.hpp"
 #include "ogccdb/cdb13/store.hpp"
 #include "ogccdb/cdb13/tile.hpp"
@@ -31,7 +32,8 @@ namespace {
 
 constexpr std::string_view kUsage =
     "usage:\n"
-    "  ogccdb-gen build <cdb> [--elevation <dem.tif|folder>]... [--imagery <image.tif|folder>]...\n"
+    "  ogccdb-gen build <cdb> [[--elevation-vertical-crs CRS|none] --elevation <dem.tif|folder>]...\n"
+    "                   [--imagery <image.tif|folder>]...\n"
     "                   [--min-lod N] [--max-lod N] [--resampling nearest|bilinear|cubic|average]\n"
     "                   [--elevation-min-lod N] [--elevation-max-lod N] [--elevation-resampling R]\n"
     "                   [--imagery-min-lod N] [--imagery-max-lod N] [--imagery-resampling R]\n"
@@ -48,6 +50,11 @@ constexpr std::string_view kUsage =
     "LODs: by default from LOD -10 to as fine as each input's resolution allows, set per\n"
     "dataset. --min-lod, --max-lod and --resampling apply to both datasets; the\n"
     "--elevation-* and --imagery-* forms set one dataset and win over them.\n"
+    "Elevation heights are taken as WGS-84 ellipsoid heights (CDB 1.3 Vol 1 §10.6.1.3.1).\n"
+    "--elevation-vertical-crs names the vertical CRS of the --elevation inputs that\n"
+    "follow it, e.g. EPSG:3855 (EGM2008 height) or EPSG:5773 (EGM96 height), and their\n"
+    "heights are converted to ellipsoid heights (PROJ needs the geoid grid); none goes\n"
+    "back to ellipsoid heights.\n"
     "--extent (degrees) imports only the tiles that overlap it, e.g. one geocell:\n"
     "--extent 8,47,9,48.\n"
     "Tiles are written whole (CDB 1.3 Vol 1 §8.6.1.1): where no input covers part of a\n"
@@ -161,7 +168,10 @@ bool parse_dataset_option(const std::string& prefix, const std::string& flag, co
 }
 
 int build(const fs::path& cdb, const std::vector<std::string>& args) {
-    std::vector<fs::path> elevation, imagery;
+    std::vector<ElevationSource> elevation;
+    std::vector<fs::path> imagery;
+    std::string vertical_crs;  // of the --elevation inputs that follow; empty = ellipsoid
+    bool vertical_crs_unused = false;
     std::optional<std::string> comment;
     DatasetOptions both, elevation_only, imagery_only;
     ImageryImportOptions imagery_opt;
@@ -176,8 +186,11 @@ int build(const fs::path& cdb, const std::vector<std::string>& args) {
         if (i + 1 >= args.size()) throw UsageError(flag + " needs a value");
         const std::string& v = args[++i];
         if (flag == "--elevation") {
-            const auto files = expand(v);
-            elevation.insert(elevation.end(), files.begin(), files.end());
+            for (const fs::path& f : expand(v)) elevation.push_back({f, vertical_crs});
+            vertical_crs_unused = false;
+        } else if (flag == "--elevation-vertical-crs") {
+            vertical_crs = v == "none" ? "" : v;
+            vertical_crs_unused = true;
         } else if (flag == "--imagery") {
             const auto files = expand(v);
             imagery.insert(imagery.end(), files.begin(), files.end());
@@ -190,6 +203,8 @@ int build(const fs::path& cdb, const std::vector<std::string>& args) {
         else if (flag == "--comment") comment = v;
         else throw UsageError("unknown option " + flag);
     }
+    if (vertical_crs_unused)
+        throw UsageError("--elevation-vertical-crs applies to the --elevation inputs after it");
 
     const bool exists = fs::exists(cdb / fs::path(std::string(kVersionFile)));
     if (exists && comment) throw UsageError("--comment only applies to a new CDB");

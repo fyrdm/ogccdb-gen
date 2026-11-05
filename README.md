@@ -26,6 +26,10 @@ ogccdb-gen --help
   resolution allows. `--min-lod`, `--max-lod` and `--resampling` set both datasets;
   `--elevation-min-lod`, `--imagery-max-lod`, `--imagery-resampling` and so on set one.
 - `--extent W,S,E,N` (degrees) limits the import, e.g. to one geocell.
+- Elevation heights are taken as WGS-84 ellipsoid heights, as the CDB stores them
+  (CDB 1.3 Vol 1 §10.6.1.3.1). `--elevation-vertical-crs EPSG:3855` (EGM2008) or
+  `EPSG:5773` (EGM96) before `--elevation` converts that input's geoid heights; PROJ
+  needs the geoid grid. `none` goes back to ellipsoid heights for later inputs.
 - Tiles are written whole (CDB 1.3 Vol 1 §8.6.1.1). Where no input covers part of a
   tile, that part gets the dataset default value from `Metadata/Defaults.xml`, else
   the spec's value (Annex S): 0 m for Elevation, gray 0.5 for Imagery. `--no-fill`

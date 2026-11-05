@@ -9,6 +9,7 @@
 #include <fstream>
 #include <functional>
 #include <iterator>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -220,6 +221,45 @@ TEST_F(GenTest, FillAndNoFill) {
         << text;
     EXPECT_NE(text.find(" left out (partly covered, or under a tile left out)\n"), std::string::npos) << text;
     EXPECT_EQ(Store::open(skip).list_tiles().size(), lods + 3);
+}
+
+// --elevation-vertical-crs converts the heights of the --elevation inputs after
+// it to ellipsoid heights; none, or no option, takes them as they are.
+TEST_F(GenTest, ElevationVerticalCrs) {
+    const std::string dem = " --elevation \"" + make_dem().string() + "\"";
+    const std::string opts = " --min-lod -2 --extent 10,10,11,11";
+    EXPECT_NE(run("build \"" + root_.string() + "\"" + dem + " --elevation-vertical-crs EPSG:5773"), 0);
+    EXPECT_NE(run("build \"" + root_.string() + "\" --elevation-vertical-crs EPSG:4326" + dem + opts), 0);
+
+    // Geoid undulation from PROJ at the centre of N10E010, or none without its grid.
+    OGRSpatialReference geoid, ellipsoid;
+    geoid.SetFromUserInput("EPSG:4326+5773");  // EGM96 height
+    ellipsoid.importFromEPSG(4979);
+    geoid.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
+    ellipsoid.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
+    OGRCoordinateTransformationOptions o;
+    o.SetOnlyBest(true);
+    std::unique_ptr<OGRCoordinateTransformation> ct(OGRCreateCoordinateTransformation(&geoid, &ellipsoid, o));
+    double x = 10.5, y = 10.5, z = 0;
+    if (!ct || !ct->Transform(1, &x, &y, &z)) GTEST_SKIP() << "PROJ has no EGM96 grid";
+
+    const fs::path shifted = dir_ / "shifted", plain = dir_ / "plain";
+    ASSERT_EQ(run("build \"" + shifted.string() + "\" --elevation-vertical-crs EPSG:5773" + dem + opts), 0)
+        << read_text(out());
+    ASSERT_EQ(run("build \"" + plain.string() + "\" --elevation-vertical-crs EPSG:5773 --elevation-vertical-crs none" +
+                  dem + opts),
+              0)
+        << read_text(out());
+    const TileAddress t{kCell, -2, 0, 0};
+    const auto a = Store::open(shifted).read_elevation(t);
+    const auto b = Store::open(plain).read_elevation(t);
+    ASSERT_TRUE(a && b);
+    const int n = raster_size(t.lod);
+    const std::size_t mid = std::size_t(n / 2) * n + n / 2;
+    const LatLon p = grid_element_position(t, kElevationAlignment, n / 2, n / 2);
+    EXPECT_NEAR(b->elevation[mid], plane(p.lat, p.lon), 0.05);
+    EXPECT_NEAR(a->elevation[mid] - b->elevation[mid], z, 0.5);
+    EXPECT_GT(std::abs(z), 1.0);
 }
 
 // info counts the tiles per dataset component, LOD and geocell.
