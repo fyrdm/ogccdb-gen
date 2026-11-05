@@ -7,7 +7,7 @@
     {
       "kind": "git",
       "repository": "https://github.com/fyrdm/ogccdb-registry.git",
-      "baseline": "0fa28903493c2bf8242cb03d1bf64c052454f4c0",
+      "baseline": "e2718e0d5dd1397b149bd58645a377106e3eea09",
       "packages": ["ogccdb-core"]
     }
   ]

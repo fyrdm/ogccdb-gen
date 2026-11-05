@@ -1,10 +1,10 @@
-Start testing: Nov 05 08:37 UTC
+Start testing: Nov 05 11:28 UTC
 ----------------------------------------------------------
 1/5 Testing: GenTest.BuildAndList
 1/5 Test: GenTest.BuildAndList
 Command: "/home/user/ogccdb-gen/build-next/ogccdb_gen_tests" "--gtest_filter=GenTest.BuildAndList" "--gtest_also_run_disabled_tests"
 Directory: /home/user/ogccdb-gen/build-next
-"GenTest.BuildAndList" start time: Nov 05 08:37 UTC
+"GenTest.BuildAndList" start time: Nov 05 11:28 UTC
 Output:
 ----------------------------------------------------------
 Running main() from ./googletest/src/gtest_main.cc
@@ -43,8 +43,9 @@ list prints the tile files of <cdb>, one path per line.
 info prints, per dataset component, LOD and geocell, how many of the geocell's tiles
 <cdb> holds.
 check reads every file under <cdb>/Tiles and prints one line per problem: a path
-that is not a CDB tile path, or a tile that cannot be read (format, size, channels,
-data type). It exits with 1 if it finds a problem.
+that is not a CDB tile path, a tile that cannot be read (format, size, channels,
+data type), or a tile whose parent at the LOD above is missing (CDB 1.3 Vol 1
+§7.1.2.2 Requirement 15). It exits with 1 if it finds a problem.
 ogccdb-gen: no .tif files in /tmp/ogccdb_gen_BuildAndList/empty
 usage:
   ogccdb-gen build <cdb> [--elevation <dem.tif|folder>]... [--imagery <image.tif|folder>]...
@@ -74,27 +75,28 @@ list prints the tile files of <cdb>, one path per line.
 info prints, per dataset component, LOD and geocell, how many of the geocell's tiles
 <cdb> holds.
 check reads every file under <cdb>/Tiles and prints one line per problem: a path
-that is not a CDB tile path, or a tile that cannot be read (format, size, channels,
-data type). It exits with 1 if it finds a problem.
-[       OK ] GenTest.BuildAndList (726 ms)
-[----------] 1 test from GenTest (726 ms total)
+that is not a CDB tile path, a tile that cannot be read (format, size, channels,
+data type), or a tile whose parent at the LOD above is missing (CDB 1.3 Vol 1
+§7.1.2.2 Requirement 15). It exits with 1 if it finds a problem.
+[       OK ] GenTest.BuildAndList (1376 ms)
+[----------] 1 test from GenTest (1376 ms total)
 
 [----------] Global test environment tear-down
-[==========] 1 test from 1 test suite ran. (726 ms total)
+[==========] 1 test from 1 test suite ran. (1376 ms total)
 [  PASSED  ] 1 test.
 <end of output>
-Test time =   0.76 sec
+Test time =   1.42 sec
 ----------------------------------------------------------
 Test Passed.
-"GenTest.BuildAndList" end time: Nov 05 08:37 UTC
-"GenTest.BuildAndList" time elapsed: 00:00:00
+"GenTest.BuildAndList" end time: Nov 05 11:28 UTC
+"GenTest.BuildAndList" time elapsed: 00:00:01
 ----------------------------------------------------------
 
 2/5 Testing: GenTest.OptionsPerDataset
 2/5 Test: GenTest.OptionsPerDataset
 Command: "/home/user/ogccdb-gen/build-next/ogccdb_gen_tests" "--gtest_filter=GenTest.OptionsPerDataset" "--gtest_also_run_disabled_tests"
 Directory: /home/user/ogccdb-gen/build-next
-"GenTest.OptionsPerDataset" start time: Nov 05 08:37 UTC
+"GenTest.OptionsPerDataset" start time: Nov 05 11:28 UTC
 Output:
 ----------------------------------------------------------
 Running main() from ./googletest/src/gtest_main.cc
@@ -132,19 +134,20 @@ list prints the tile files of <cdb>, one path per line.
 info prints, per dataset component, LOD and geocell, how many of the geocell's tiles
 <cdb> holds.
 check reads every file under <cdb>/Tiles and prints one line per problem: a path
-that is not a CDB tile path, or a tile that cannot be read (format, size, channels,
-data type). It exits with 1 if it finds a problem.
-[       OK ] GenTest.OptionsPerDataset (375 ms)
-[----------] 1 test from GenTest (375 ms total)
+that is not a CDB tile path, a tile that cannot be read (format, size, channels,
+data type), or a tile whose parent at the LOD above is missing (CDB 1.3 Vol 1
+§7.1.2.2 Requirement 15). It exits with 1 if it finds a problem.
+[       OK ] GenTest.OptionsPerDataset (249 ms)
+[----------] 1 test from GenTest (249 ms total)
 
 [----------] Global test environment tear-down
-[==========] 1 test from 1 test suite ran. (375 ms total)
+[==========] 1 test from 1 test suite ran. (249 ms total)
 [  PASSED  ] 1 test.
 <end of output>
-Test time =   0.42 sec
+Test time =   0.29 sec
 ----------------------------------------------------------
 Test Passed.
-"GenTest.OptionsPerDataset" end time: Nov 05 08:37 UTC
+"GenTest.OptionsPerDataset" end time: Nov 05 11:28 UTC
 "GenTest.OptionsPerDataset" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -152,7 +155,7 @@ Test Passed.
 3/5 Test: GenTest.FillAndNoFill
 Command: "/home/user/ogccdb-gen/build-next/ogccdb_gen_tests" "--gtest_filter=GenTest.FillAndNoFill" "--gtest_also_run_disabled_tests"
 Directory: /home/user/ogccdb-gen/build-next
-"GenTest.FillAndNoFill" start time: Nov 05 08:37 UTC
+"GenTest.FillAndNoFill" start time: Nov 05 11:28 UTC
 Output:
 ----------------------------------------------------------
 Running main() from ./googletest/src/gtest_main.cc
@@ -161,17 +164,17 @@ Note: Google Test filter = GenTest.FillAndNoFill
 [----------] Global test environment set-up.
 [----------] 1 test from GenTest
 [ RUN      ] GenTest.FillAndNoFill
-[       OK ] GenTest.FillAndNoFill (412 ms)
-[----------] 1 test from GenTest (412 ms total)
+[       OK ] GenTest.FillAndNoFill (336 ms)
+[----------] 1 test from GenTest (336 ms total)
 
 [----------] Global test environment tear-down
-[==========] 1 test from 1 test suite ran. (412 ms total)
+[==========] 1 test from 1 test suite ran. (336 ms total)
 [  PASSED  ] 1 test.
 <end of output>
-Test time =   0.45 sec
+Test time =   0.38 sec
 ----------------------------------------------------------
 Test Passed.
-"GenTest.FillAndNoFill" end time: Nov 05 08:37 UTC
+"GenTest.FillAndNoFill" end time: Nov 05 11:28 UTC
 "GenTest.FillAndNoFill" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -179,7 +182,7 @@ Test Passed.
 4/5 Test: GenTest.Info
 Command: "/home/user/ogccdb-gen/build-next/ogccdb_gen_tests" "--gtest_filter=GenTest.Info" "--gtest_also_run_disabled_tests"
 Directory: /home/user/ogccdb-gen/build-next
-"GenTest.Info" start time: Nov 05 08:37 UTC
+"GenTest.Info" start time: Nov 05 11:28 UTC
 Output:
 ----------------------------------------------------------
 Running main() from ./googletest/src/gtest_main.cc
@@ -188,17 +191,17 @@ Note: Google Test filter = GenTest.Info
 [----------] Global test environment set-up.
 [----------] 1 test from GenTest
 [ RUN      ] GenTest.Info
-[       OK ] GenTest.Info (749 ms)
-[----------] 1 test from GenTest (749 ms total)
+[       OK ] GenTest.Info (543 ms)
+[----------] 1 test from GenTest (543 ms total)
 
 [----------] Global test environment tear-down
-[==========] 1 test from 1 test suite ran. (749 ms total)
+[==========] 1 test from 1 test suite ran. (543 ms total)
 [  PASSED  ] 1 test.
 <end of output>
-Test time =   0.79 sec
+Test time =   0.58 sec
 ----------------------------------------------------------
 Test Passed.
-"GenTest.Info" end time: Nov 05 08:37 UTC
+"GenTest.Info" end time: Nov 05 11:28 UTC
 "GenTest.Info" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -206,7 +209,7 @@ Test Passed.
 5/5 Test: GenTest.Check
 Command: "/home/user/ogccdb-gen/build-next/ogccdb_gen_tests" "--gtest_filter=GenTest.Check" "--gtest_also_run_disabled_tests"
 Directory: /home/user/ogccdb-gen/build-next
-"GenTest.Check" start time: Nov 05 08:37 UTC
+"GenTest.Check" start time: Nov 05 11:28 UTC
 Output:
 ----------------------------------------------------------
 Running main() from ./googletest/src/gtest_main.cc
@@ -215,18 +218,18 @@ Note: Google Test filter = GenTest.Check
 [----------] Global test environment set-up.
 [----------] 1 test from GenTest
 [ RUN      ] GenTest.Check
-[       OK ] GenTest.Check (822 ms)
-[----------] 1 test from GenTest (822 ms total)
+[       OK ] GenTest.Check (840 ms)
+[----------] 1 test from GenTest (840 ms total)
 
 [----------] Global test environment tear-down
-[==========] 1 test from 1 test suite ran. (822 ms total)
+[==========] 1 test from 1 test suite ran. (840 ms total)
 [  PASSED  ] 1 test.
 <end of output>
-Test time =   0.86 sec
+Test time =   0.87 sec
 ----------------------------------------------------------
 Test Passed.
-"GenTest.Check" end time: Nov 05 08:37 UTC
+"GenTest.Check" end time: Nov 05 11:28 UTC
 "GenTest.Check" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-End testing: Nov 05 08:37 UTC
+End testing: Nov 05 11:28 UTC
