@@ -7,6 +7,48 @@ ogccdb-core C++17 library. License: MIT.
 
 > Status: early development.
 
+## Quickstart
+
+From GeoTIFF/DEM inputs to a CDB store you can check and look at in QGIS, on
+Ubuntu 24.04. ogccdb-core and its QGIS script come from
+[fyrdm/ogccdb-core](https://github.com/fyrdm/ogccdb-core).
+
+1. Build ogccdb-core and install it to a prefix, then build ogccdb-gen against it:
+
+   ```bash
+   git clone https://github.com/fyrdm/ogccdb-core.git
+   ogccdb-core/scripts/setup-ubuntu.sh        # GDAL, pugixml, GTest (sudo apt)
+   cmake -B ogccdb-core/build -S ogccdb-core -G Ninja -DCMAKE_BUILD_TYPE=Release
+   cmake --build ogccdb-core/build
+   cmake --install ogccdb-core/build --prefix $HOME/ogccdb-prefix
+
+   git clone https://github.com/fyrdm/ogccdb-gen.git
+   cmake -B ogccdb-gen/build -S ogccdb-gen -G Ninja -DCMAKE_PREFIX_PATH=$HOME/ogccdb-prefix
+   cmake --build ogccdb-gen/build
+   ```
+
+2. Build a store. Elevation must be heights above the WGS-84 ellipsoid (CDB 1.3
+   Vol 1 §10.6.1); imagery 8-bit RGB. Any CRS GDAL can transform to WGS-84 works.
+
+   ```bash
+   ogccdb-gen/build/ogccdb-gen build out/CDB --elevation dem.tif --imagery image.tif
+   ```
+
+   No data at hand? `sample_data/` builds the whole geocell N47 E008 from open global
+   data (110 tiles, about 3 minutes); see its README.
+
+3. Check it and see what it holds:
+
+   ```bash
+   ogccdb-gen/build/ogccdb-gen check out/CDB   # "110 tiles read, 0 problems", exit code 0
+   ogccdb-gen/build/ogccdb-gen info out/CDB    # tiles per dataset, LOD and geocell
+   ```
+
+4. Open it in QGIS (3.34 or later): Processing Toolbox › Scripts (Python icon) ›
+   **Add Script to Toolbox…**, pick `ogccdb-core/apps/ogccdb-qgis/cdb_raster_layers.py`,
+   then run **OGC CDB › Add CDB raster layers** on the `out/CDB` folder. Elevation shows
+   first; switch on `004_Imagery` in the Layers panel to see the imagery.
+
 ## Use
 
 ```bash
