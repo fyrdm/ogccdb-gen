@@ -1,0 +1,7 @@
+# ninja log v5
+1	1646	1793867820819896475	CMakeFiles/ogccdb-gen.dir/src/main.cpp.o	158af18dd5880147
+1646	2067	1793867821239896500	ogccdb-gen	e6bd709869c3fd94
+2067	4701	1793867823875896657	CMakeFiles/ogccdb_gen_tests.dir/tests/test_cli.cpp.o	40fe3d6e3d937569
+4702	5166	1793867824339896685	ogccdb_gen_tests	a2121afc7f4f156
+4702	5166	1793867824339896685	ogccdb_gen_tests[1]_tests.cmake	a2121afc7f4f156
+4702	5166	1793867824339896685	/home/user/ogccdb-gen/build-next/ogccdb_gen_tests[1]_tests.cmake	a2121afc7f4f156

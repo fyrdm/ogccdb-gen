@@ -1,0 +1,5 @@
+if(EXISTS "/home/user/ogccdb-gen/build-next/ogccdb_gen_tests[1]_tests.cmake")
+  include("/home/user/ogccdb-gen/build-next/ogccdb_gen_tests[1]_tests.cmake")
+else()
+  add_test(ogccdb_gen_tests_NOT_BUILT ogccdb_gen_tests_NOT_BUILT)
+endif()

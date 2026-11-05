@@ -11,14 +11,18 @@
 #include <iostream>
 #include <locale>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "ogccdb/cdb13/lod.hpp"
 #include "ogccdb/cdb13/store.hpp"
+#include "ogccdb/cdb13/tile.hpp"
+#include "ogccdb/cdb13/tile_path.hpp"
 
 namespace fs = std::filesystem;
 using namespace ogccdb::cdb13;
@@ -54,8 +58,9 @@ constexpr std::string_view kUsage =
     "info prints, per dataset component, LOD and geocell, how many of the geocell's tiles\n"
     "<cdb> holds.\n"
     "check reads every file under <cdb>/Tiles and prints one line per problem: a path\n"
-    "that is not a CDB tile path, or a tile that cannot be read (format, size, channels,\n"
-    "data type). It exits with 1 if it finds a problem.\n";
+    "that is not a CDB tile path, a tile that cannot be read (format, size, channels,\n"
+    "data type), or a tile whose parent at the LOD above is missing (CDB 1.3 Vol 1\n"
+    "§7.1.2.2 Requirement 15). It exits with 1 if it finds a problem.\n";
 
 struct UsageError : std::runtime_error {
     using std::runtime_error::runtime_error;
@@ -113,6 +118,14 @@ std::string lod_range(const std::vector<TileAddress>& tiles) {
     const auto [lo, hi] = std::minmax_element(
         tiles.begin(), tiles.end(), [](const TileAddress& a, const TileAddress& b) { return a.lod < b.lod; });
     return " (" + lod_name(lo->lod) + " to " + lod_name(hi->lod) + ")";
+}
+
+// CDB 1.3 Vol 1 §7.1.2.2 Requirement 15: each tile needs its parent down to
+// LOD -10, so an import that starts finer relies on the store holding them.
+void warn_min_lod(std::string_view what, int min_lod) {
+    if (min_lod > kMinLod)
+        std::cout << "warning: " << what << " starts at " << lod_name(min_lod) << "; its tiles need their parents"
+                  << " down to " << lod_name(kMinLod) << " (Requirement 15), see `ogccdb-gen check`\n";
 }
 
 void report(std::string_view what, const RasterImportResult& r, PartialTiles partial) {
@@ -192,8 +205,14 @@ int build(const fs::path& cdb, const std::vector<std::string>& args) {
     apply(elevation_only, elevation_opt);
     apply(both, imagery_opt);
     apply(imagery_only, imagery_opt);
-    if (!elevation.empty()) report("Elevation", store.import_elevation(elevation, elevation_opt), partial);
-    if (!imagery.empty()) report("Imagery", store.import_imagery(imagery, imagery_opt), partial);
+    if (!elevation.empty()) {
+        report("Elevation", store.import_elevation(elevation, elevation_opt), partial);
+        warn_min_lod("Elevation", elevation_opt.min_lod);
+    }
+    if (!imagery.empty()) {
+        report("Imagery", store.import_imagery(imagery, imagery_opt), partial);
+        warn_min_lod("Imagery", imagery_opt.min_lod);
+    }
     return 0;
 }
 
@@ -273,6 +292,15 @@ int check(const fs::path& cdb, const std::vector<std::string>& args) {
             if (!e.is_directory()) paths.push_back(e.path());
     std::sort(paths.begin(), paths.end());
 
+    // Every tile file in the store, by dataset component, to look up parents.
+    using Key = std::tuple<int, int, int, int, int, int, int, int>;
+    const auto key = [](const TileFile& f) {
+        return Key{f.dataset, f.selector1, f.selector2, f.tile.geocell.lat, f.tile.geocell.lon,
+                   f.tile.lod, f.tile.u, f.tile.r};
+    };
+    std::set<Key> present;
+    std::vector<std::pair<std::string, TileFile>> checked;
+
     std::size_t read = 0, skipped = 0, problems = 0;
     for (const fs::path& path : paths) {
         const std::string rel = path.lexically_relative(store.root()).generic_string();
@@ -283,7 +311,9 @@ int check(const fs::path& cdb, const std::vector<std::string>& args) {
             continue;
         }
         const TileFile& f = parsed->file;
+        present.insert(key(f));
         if ((q.dataset && f.dataset != *q.dataset) || (q.lod && f.tile.lod != *q.lod)) continue;
+        checked.emplace_back(rel, f);
         try {
             const ImageryComponent c{f.selector1, f.selector2};
             if (f == elevation_file(f.tile)) store.read_elevation(f.tile);
@@ -300,6 +330,18 @@ int check(const fs::path& cdb, const std::vector<std::string>& args) {
             const std::string prefix = path.string() + ": ";
             if (why.compare(0, prefix.size(), prefix) == 0) why.erase(0, prefix.size());
             std::cout << rel << ": " << why << "\n";
+            ++problems;
+        }
+    }
+    // CDB 1.3 Vol 1 §7.1.2.2 Requirement 15: the LOD hierarchy of a geocell is
+    // complete, so every tile finer than LOD -10 has its parent (§7.1.2.3).
+    for (const auto& [rel, f] : checked) {
+        const auto parent = parent_tile(f.tile);
+        if (!parent) continue;
+        TileFile p = f;
+        p.tile = *parent;
+        if (!present.count(key(p))) {
+            std::cout << rel << ": parent tile " << relative_path(p) << " is missing (Requirement 15)\n";
             ++problems;
         }
     }

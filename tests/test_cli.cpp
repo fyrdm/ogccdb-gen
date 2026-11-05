@@ -183,6 +183,10 @@ TEST_F(GenTest, OptionsPerDataset) {
         << read_text(out());
     EXPECT_NE(read_text(out()).find("Imagery: 1 tiles written (LC02 to LC02)"), std::string::npos)
         << read_text(out());
+    EXPECT_NE(read_text(out()).find("warning: Imagery starts at LC02; its tiles need their parents down to LC10"
+                                    " (Requirement 15), see `ogccdb-gen check`\n"),
+              std::string::npos)
+        << read_text(out());
     const Store store = Store::open(root_);
     EXPECT_EQ(store.list_tiles({kElevation, std::nullopt, std::nullopt}).size(), 2u);
     EXPECT_EQ(store.list_tiles({kImagery, std::nullopt, std::nullopt}).size(), 1u);
@@ -238,12 +242,13 @@ TEST_F(GenTest, Info) {
 // check reads every tile and reports bad paths and unreadable tiles.
 TEST_F(GenTest, Check) {
     const std::string cdb = "\"" + root_.string() + "\"";
-    ASSERT_EQ(run("build " + cdb + " --elevation \"" + make_dem().string() + "\" --min-lod 0" +
-                  " --max-lod 1 --extent 10,10,11,10.5"),
+    // LOD -10 to 0 have one tile of N10E010, LOD 1 two in the south half.
+    ASSERT_EQ(run("build " + cdb + " --elevation \"" + make_dem().string() + "\" --max-lod 1" +
+                  " --extent 10,10,11,10.5"),
               0)
         << read_text(out());
     ASSERT_EQ(run("check " + cdb), 0) << read_text(out());
-    EXPECT_EQ(read_text(out()), "3 tiles read, 0 problems\n");
+    EXPECT_EQ(read_text(out()), "13 tiles read, 0 problems\n");
 
     // A stray file, a file that is not a GeoTIFF, and a GeoTIFF of the wrong size.
     const std::string l0 = relative_path(elevation_file({kCell, 0, 0, 0}));
@@ -258,9 +263,18 @@ TEST_F(GenTest, Check) {
     EXPECT_NE(text.find("Tiles/notes.txt: not a CDB tile path\n"), std::string::npos) << text;
     EXPECT_NE(text.find(l0 + ": "), std::string::npos) << text;
     EXPECT_NE(text.find(l1 + ": "), std::string::npos) << text;
-    EXPECT_NE(text.find("1 tiles read, 3 problems\n"), std::string::npos) << text;
+    EXPECT_NE(text.find("11 tiles read, 3 problems\n"), std::string::npos) << text;
     // --lod filters the tiles read; paths that are not tile paths are always reported.
     EXPECT_NE(run("check " + cdb + " --lod 1"), 0);
     EXPECT_EQ(read_text(out()), l1 + ": expected 1024x1024 grid\nTiles/notes.txt: not a CDB tile path\n" +
                                     "1 tiles read, 2 problems\n");
+
+    // Without the LOD 0 tile, both LOD 1 tiles lack their parent (Requirement 15).
+    fs::remove(root_ / l0);
+    const std::string r1 = relative_path(elevation_file({kCell, 1, 0, 1}));
+    EXPECT_NE(run("check " + cdb + " --lod 1"), 0);
+    EXPECT_EQ(read_text(out()), l1 + ": expected 1024x1024 grid\nTiles/notes.txt: not a CDB tile path\n" + l1 +
+                                    ": parent tile " + l0 + " is missing (Requirement 15)\n" + r1 +
+                                    ": parent tile " + l0 + " is missing (Requirement 15)\n" +
+                                    "1 tiles read, 4 problems\n");
 }
