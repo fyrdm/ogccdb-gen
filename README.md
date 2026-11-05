@@ -31,7 +31,7 @@ ogccdb-gen --help
 
 ## Build
 
-Needs CMake ≥ 3.20, a C++17 compiler and ogccdb-core 0.2.
+Needs CMake ≥ 3.20, a C++17 compiler and ogccdb-core 0.4.
 
 With ogccdb-core installed to a prefix (it needs GDAL, pugixml and, for the tests,
 GTest from system packages):

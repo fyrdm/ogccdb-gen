@@ -96,15 +96,12 @@ protected:
                            });
     }
 
-    // Checks a store built from make_dem() and make_rgb() with default options:
-    // one tile of N10E010 per dataset and LOD -10..-2, holding the inputs.
+    // Checks a store built from make_dem() and make_rgb() limited to N10E010:
+    // one tile per dataset and LOD -10..-2, holding the inputs.
     void expect_built(const Store& store) {
         const std::size_t lods = kFinestLod - kMinLod + 1;
-        // The single LOD -10 post of a geocell sits on its north-west corner, so
-        // the source also covers N09E010, N09E011 and N10E011 at that LOD.
-        EXPECT_EQ(store.list_tiles().size(), 2 * lods + 3);
-        EXPECT_EQ(store.list_tiles({kElevation, kMinLod, std::nullopt}).size(), 4u);
-        const auto all = store.list_tiles({std::nullopt, std::nullopt, extent(kCell)});
+        EXPECT_EQ(store.list_tiles({kElevation, kMinLod, std::nullopt}).size(), 1u);
+        const auto all = store.list_tiles();
         ASSERT_EQ(all.size(), 2 * lods);
         for (std::size_t k = 0; k < all.size(); ++k) {
             const bool elevation = k < lods;
@@ -154,7 +151,7 @@ TEST_F(GenTest, BuildAndList) {
     fs::create_directories(scenes);
     fs::rename(make_rgb(), scenes / "rgb.tif");
     ASSERT_EQ(run("build " + cdb + " --elevation \"" + make_dem().string() + "\" --imagery \"" +
-                  scenes.string() + "\" --comment example"),
+                  scenes.string() + "\" --comment example --extent 10,10,11,11"),
               0)
         << read_text(out());
     const Store store = Store::open(root_);

@@ -12,8 +12,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# While ogccdb-core is 0.x, a minor release may change its API: 0.2 accepts 0.2.z only.
-find_package(ogccdb-core 0.2 CONFIG REQUIRED)
+# While ogccdb-core is 0.x, a minor release may change its API: 0.4 accepts 0.4.z only.
+find_package(ogccdb-core 0.4 CONFIG REQUIRED)
 
 add_executable(ogccdb-gen src/main.cpp)
 target_link_libraries(ogccdb-gen PRIVATE ogccdb::core)
