@@ -49,5 +49,6 @@ of the sample because CDB 1.3 Vol 1 §7.1.2.2 Requirement 15 asks for the whole 
 hierarchy down to LOD −10 in every geocell. The summary prints, per dataset, LOD and geocell, how many
 of the geocell's tiles were written, and how much of each geocell the area covers.
 
-ogccdb-gen writes only tiles the sources fully cover. For an area smaller than a geocell,
-the summary marks the geocell and its LODs as partial, and LOD 0 is then missing.
+For an area smaller than a geocell, the summary marks the geocell and its LODs as partial.
+Where the sources cover only part of a tile, ogccdb-gen fills the rest with the dataset
+default value (see the main README).
