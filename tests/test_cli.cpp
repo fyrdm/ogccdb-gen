@@ -101,8 +101,9 @@ protected:
     void expect_built(const Store& store) {
         const std::size_t lods = kFinestLod - kMinLod + 1;
         // The single LOD -10 post of a geocell sits on its north-west corner, so
-        // the source also covers N09E010, N09E011 and N10E011 at that LOD.
-        EXPECT_EQ(store.list_tiles().size(), 2 * lods + 3);
+        // the source also covers N09E010, N09E011 and N10E011 at that LOD, and
+        // part of them at finer LODs: their Elevation tiles are written filled.
+        EXPECT_EQ(store.list_tiles().size(), 2 * lods + 3 * lods);
         EXPECT_EQ(store.list_tiles({kElevation, kMinLod, std::nullopt}).size(), 4u);
         const auto all = store.list_tiles({std::nullopt, std::nullopt, extent(kCell)});
         ASSERT_EQ(all.size(), 2 * lods);
@@ -186,6 +187,35 @@ TEST_F(GenTest, OptionsPerDataset) {
     EXPECT_EQ(store.list_tiles({kElevation, std::nullopt, std::nullopt}).size(), 2u);
     EXPECT_EQ(store.list_tiles({kImagery, std::nullopt, std::nullopt}).size(), 1u);
     EXPECT_NE(run("build " + cdb + " --imagery-resampling sharp"), 0);
+}
+
+// Partly covered tiles are written filled with the default value, or left
+// out with --no-fill together with the finer tiles under them.
+TEST_F(GenTest, FillAndNoFill) {
+    const std::string dem = " --elevation \"" + make_dem().string() + "\"";
+    const std::size_t lods = kFinestLod - kMinLod + 1;
+    ASSERT_EQ(run("build \"" + root_.string() + "\"" + dem), 0) << read_text(out());
+    EXPECT_NE(read_text(out()).find("Elevation: " + std::to_string(4 * lods) + " tiles written (LC10 to LC02), " +
+                                    std::to_string(3 * (lods - 1)) +
+                                    " of them partly covered and filled with the default value (LC09 to LC02)\n"),
+              std::string::npos)
+        << read_text(out());
+    // N10E011 at LOD -2: the source reaches 0.25 degrees into it from the
+    // west; east of that, the elements hold the default value 0 m.
+    const Store filled = Store::open(root_);
+    const auto east = filled.read_elevation({Geocell{10, 11}, kFinestLod, 0, 0});
+    ASSERT_TRUE(east);
+    const int n = raster_size(kFinestLod);
+    EXPECT_NEAR(east->elevation[std::size_t(n / 2) * n], plane(10.5, 11.0), 0.05);
+    EXPECT_EQ(east->elevation[std::size_t(n / 2) * n + n - 1], 0.0f);
+
+    const fs::path skip = dir_ / "skip";
+    ASSERT_EQ(run("build \"" + skip.string() + "\"" + dem + " --no-fill"), 0) << read_text(out());
+    const std::string text = read_text(out());
+    EXPECT_NE(text.find("Elevation: " + std::to_string(lods + 3) + " tiles written (LC10 to LC02), "), std::string::npos)
+        << text;
+    EXPECT_NE(text.find(" left out (partly covered, or under a tile left out)\n"), std::string::npos) << text;
+    EXPECT_EQ(Store::open(skip).list_tiles().size(), lods + 3);
 }
 
 // info counts the tiles per dataset component, LOD and geocell.
