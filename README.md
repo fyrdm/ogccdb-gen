@@ -30,14 +30,16 @@ ogccdb-gen --help
   tile, that part gets the dataset default value from `Metadata/Defaults.xml`, else
   the spec's value (Annex S): 0 m for Elevation, gray 0.5 for Imagery. `--no-fill`
   leaves such tiles out instead, together with the finer tiles under them
-  (§7.1.2.2 Requirement 15). An input that reaches past a geocell edge also fills
-  tiles of the neighbouring geocell; `--extent` keeps them out.
+  (§7.1.2.2 Requirement 15).
+- Without `--extent`, an input builds only the geocells it reaches by more than one
+  pixel, so a 1° DEM whose edge posts lie on the geocell lines builds its own
+  geocell, not its neighbours. With `--extent`, every tile in the extent is built.
 
 `sample_data/` builds a small sample store from open global data; see its README.
 
 ## Build
 
-Needs CMake ≥ 3.20, a C++17 compiler and ogccdb-core 0.3.
+Needs CMake ≥ 3.20, a C++17 compiler and ogccdb-core 0.4.
 
 With ogccdb-core installed to a prefix (it needs GDAL, pugixml and, for the tests,
 GTest from system packages):
