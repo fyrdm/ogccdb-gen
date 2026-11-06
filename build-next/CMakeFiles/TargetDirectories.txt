@@ -1,9 +1,0 @@
-/home/user/ogccdb-gen/build-next/CMakeFiles/ogccdb-gen.dir
-/home/user/ogccdb-gen/build-next/CMakeFiles/ogccdb_gen_tests.dir
-/home/user/ogccdb-gen/build-next/CMakeFiles/test.dir
-/home/user/ogccdb-gen/build-next/CMakeFiles/edit_cache.dir
-/home/user/ogccdb-gen/build-next/CMakeFiles/rebuild_cache.dir
-/home/user/ogccdb-gen/build-next/CMakeFiles/list_install_components.dir
-/home/user/ogccdb-gen/build-next/CMakeFiles/install.dir
-/home/user/ogccdb-gen/build-next/CMakeFiles/install/local.dir
-/home/user/ogccdb-gen/build-next/CMakeFiles/install/strip.dir
