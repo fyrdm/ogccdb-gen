@@ -340,10 +340,12 @@ int check(const fs::path& cdb, const std::vector<std::string>& args) {
             }
             ++read;
         } catch (const std::exception& e) {
-            // The readers prefix the message with the file's path.
+            // The readers prefix the message with the file's path. Compare it as a
+            // path: on Windows its separators may mix '/' and '\'.
             std::string why = e.what();
-            const std::string prefix = path.string() + ": ";
-            if (why.compare(0, prefix.size(), prefix) == 0) why.erase(0, prefix.size());
+            const std::size_t n = path.string().size();
+            if (why.size() >= n + 2 && why.compare(n, 2, ": ") == 0 &&
+                fs::path(why.substr(0, n)) == path) why.erase(0, n + 2);
             std::cout << rel << ": " << why << "\n";
             ++problems;
         }

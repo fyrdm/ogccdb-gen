@@ -37,7 +37,7 @@ Needs the GDAL and PROJ command line tools and a built `ogccdb-gen`:
 python3 sample_data/build_sample_cdb.py --config ../sample-sources.json
 ```
 
-Options: `--gen` (path to ogccdb-gen, default `build/ogccdb-gen`), `--work` (default
+Options: `--gen` (path to ogccdb-gen, default `build/ogccdb-gen`, `.exe` on Windows), `--work` (default
 `out/sample`), `--force` (rebuild the CDB), `--min-lod` (default −10), `--max-lod`,
 `--keep-geoid-heights`.
 
