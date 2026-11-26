@@ -109,3 +109,30 @@ ctest --test-dir build --output-on-failure
 
 To use a newer ogccdb-core, move the registry `baseline` to a later commit of the
 registry.
+
+### Windows
+
+vcpkg builds GDAL from source, which takes about an hour the first time. Prebuilt
+packages from conda-forge are faster. In PowerShell, with the 64-bit C++ compiler's
+developer environment loaded (so `cl` is on `PATH`):
+
+```powershell
+conda create -y -n ogccdb -c conda-forge --override-channels `
+    libgdal libgdal-jp2openjpeg gdal proj pugixml gtest cmake ninja python
+conda activate ogccdb
+$deps = "$env:CONDA_PREFIX\Library"
+cmake -B ogccdb-core\build -S ogccdb-core -G Ninja -DCMAKE_BUILD_TYPE=Release `
+    -DCMAKE_PREFIX_PATH="$deps" -DCMAKE_INSTALL_PREFIX="$HOME\ogccdb-prefix"
+cmake --build ogccdb-core\build
+cmake --install ogccdb-core\build
+cmake -B ogccdb-gen\build -S ogccdb-gen -G Ninja -DCMAKE_BUILD_TYPE=Release `
+    -DCMAKE_PREFIX_PATH="$HOME\ogccdb-prefix;$deps"
+cmake --build ogccdb-gen\build
+ctest --test-dir ogccdb-gen\build --output-on-failure
+ogccdb-gen\build\ogccdb-gen.exe build out\CDB --elevation dem.tif --imagery image.tif
+```
+
+`libgdal-jp2openjpeg` is the JPEG 2000 driver that Imagery tiles need; `libgdal`
+alone does not include it. Run `ogccdb-gen.exe` with the env active, so it finds the
+GDAL and PROJ libraries and data. For `--elevation-vertical-crs`, set
+`$env:PROJ_NETWORK = "ON"` or install the geoid grid with `projsync`.
