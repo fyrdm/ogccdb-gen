@@ -241,7 +241,8 @@ def main():
     here = Path(__file__).resolve().parent
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--config", required=True, help="sources JSON (see sources.template.json)")
-    ap.add_argument("--gen", default="build/ogccdb-gen", help="path to the ogccdb-gen program")
+    exe = ".exe" if sys.platform == "win32" else ""
+    ap.add_argument("--gen", default=f"build/ogccdb-gen{exe}", help="path to the ogccdb-gen program")
     ap.add_argument("--work", default="out/sample",
                     help="folder for the downloaded windows and the CDB (default: out/sample)")
     ap.add_argument("--keep-geoid-heights", action="store_true",
